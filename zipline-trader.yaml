@@ -1,0 +1,5 @@
+alpaca:
+  key_id: "PKK65GBHYVQLCBPL1VU5"
+  secret: "qLbRNCg3rzmCV5BmrbiyzyrdPeFzqztQjXmHgrDM"
+  base_url: https://paper-api.alpaca.markets
+  universe: ALL
