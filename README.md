@@ -1,1 +1,1 @@
-# zipline-backtests
+Zipline algorithms for backtesting and live trading
