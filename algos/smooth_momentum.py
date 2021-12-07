@@ -126,13 +126,8 @@ def initialize(context):
     """
     Called once at the start of the algorithm.
     """   
-    
-    #  initialize the context
-    #context.number_of_stocks = 20
     context.number_of_stocks = 50
     context.number_of_stocks_for_selection = 30
-    
-    #assert context.number_of_stocks <= context.number_of_stocks_for_selection
     
     #  the rebalance frequency in months
     context.rebalance_freq = 1
@@ -151,11 +146,6 @@ def initialize(context):
         rebalance,
         date_rules.month_start(),
         time_rules.market_open()
-    )
-    schedule_function(
-        record_vars,
-        date_rules.month_start(),
-        time_rules.market_close(),
     )
     
     attach_pipeline(make_pipeline(context), 'pipe')
