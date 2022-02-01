@@ -4,6 +4,8 @@ AlphaArchitect and their momentum strategy that looks back 12 months and
 rebalances every quarter and holds about 30 - 50 stocks.
 """
 
+# todo: use correlation for quality of momentum? https://realpython.com/python310-new-features/#new-functions-in-the-statistics-module
+
 import numpy as np
 from scipy import stats
 import re

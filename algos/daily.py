@@ -11,6 +11,7 @@ Ideas:
  - mean reversion: for any MR strategy set something like a 100 EMA as a guard
 """
 import talib
+from pandas import Timedelta
 import zipline.protocol
 from zipline.algorithm import TradingAlgorithm
 from zipline.api import (
@@ -56,6 +57,7 @@ def initialize(context: TradingAlgorithm):
     #  initialize the context
     context.max_concentration = .04
     context.names_to_buy = None
+    context.position_dates = {}
     
     set_commission(commission.PerTrade(cost=0.0))
     
@@ -65,12 +67,6 @@ def initialize(context: TradingAlgorithm):
         time_rules.market_open(minutes=1)
     )
     
-    #schedule_function(
-    #    rebalance_end,
-    #    date_rules.every_day(),
-    #    time_rules.market_open()
-    #)
-
     attach_pipeline(make_pipeline(context), 'pipe')
     
 
@@ -92,10 +88,21 @@ def rebalance_start(context: TradingAlgorithm, data: BarData):
     open_ = pipeline_output('pipe')['open']
     
     for equity, position in context.portfolio.positions.items():
-        # check time bound exit, ex 5 days
-        historical_opens = data.history(open_.index, "open", 10, "1d")
-        ema = historical_opens.apply(lambda col: talib.EMA(col, timeperiod=5))
-        rsi
+        if equity not in context.position_dates:
+            print(equity)
+            x = 4
+        if get_datetime() - context.position_dates[equity] >= Timedelta(days=5):
+            order_target_percent(equity, 0)
+            del context.position_dates[equity]
+            continue
+
+        historical_opens = data.history(equity, "open", 10, "1d")
+        #ema = historical_opens.apply(lambda col: talib.EMA(col, timeperiod=5))
+        rsi = talib.RSI(historical_opens, timeperiod=2)
+        #  todo: put in stops once breaks back above ema
+        if rsi.iloc[-1] >= 80:
+            order_target_percent(equity, 0)
+            del context.position_dates[equity]
 
     max_price = context.account.settled_cash * context.max_concentration
     open_ = open_[open_ <= max_price]
@@ -106,16 +113,10 @@ def rebalance_start(context: TradingAlgorithm, data: BarData):
     below = [x for x in combo if x[1] < x[2]]
     sorted_below = sorted(below, key=lambda x: (x[2] - x[1]) / x[1], reverse=True)
     open_order_value = 0
-    
 
-    for name in (x[0] for x in sorted_below):
-        if data.can_trade(name) and open_order_value < context.account.settled_cash:
+    for name, price in ((x[0], x[1]) for x in sorted_below):
+        if name not in context.position_dates and data.can_trade(name) and open_order_value < context.account.settled_cash:
             order_id = order_target_percent(name, context.max_concentration)
-            open_order_value += context.get_order(order_id).amount
-
-
-def rebalance_end(context: TradingAlgorithm, data: BarData):
-    
-    for name in context.portfolio.positions.keys():
-        if data.can_trade(name):
-            order_target_percent(name, 0)
+            order = context.get_order(order_id)
+            open_order_value += order.amount * price
+            context.position_dates[name] = get_datetime()
