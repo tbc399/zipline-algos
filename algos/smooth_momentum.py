@@ -38,6 +38,12 @@ from zipline.pipeline.filters.fundamentals import (
 
 
 class MomentumQuality(CustomFactor):
+    """
+    Notes:
+        - using rate of return and r values does seem to do a little better than just rate of return
+        - slope vs returns is negligible, but it looks like returns is a little better
+        - Probably would be worth looking at one more quality measure, e.g. from Quantitative Momentum book
+    """
     
     inputs = [EquityPricing.close]
 
