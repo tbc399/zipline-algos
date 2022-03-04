@@ -48,13 +48,33 @@ class MomentumQuality(CustomFactor):
         output = []
         for col in prices:  
             slope, _, r_value, _, _ = stats.linregress(x, col)
-            quality = r_value ** 2
+            #quality = r_value ** 2
             #output.append(r_value ** 2)
-            output.append((slope * 0.3) + (quality * 0.7))
+            #returns = (col[-1] - col[0]) / col[0]
+            output.append((slope * 0.7) + (r_value * 0.3))
+            #output.append((returns * 0.7) + (r_value * 0.3))
 
         out[:] = output
-        
-        
+
+
+class ReturnsQuality(CustomFactor):
+    
+    inputs = [EquityPricing.close]
+    
+    def compute(self, today, assets, out, close):
+        prices = close.transpose()
+        x = np.arange(self.window_length)
+        output = []
+        for col in prices:
+            try:
+                r_value, _ = stats.pearsonr(x, col)
+                output.append(r_value)
+            except ValueError as error:
+                #print(error)
+                output.append(0)
+        out[:] = output
+
+
 def my_default_us_equity_mask():
     
     has_prev_close = EquityPricing.close.latest.notnull()
@@ -161,7 +181,6 @@ def months_to_days(months):
 def make_pipeline(context):
     """TODO"""
 
-    #base_universe = Q500US()
     base_universe = T500US()
     
     returns = Returns(
@@ -170,17 +189,24 @@ def make_pipeline(context):
         mask=base_universe
     )
     
-    quality = MomentumQuality(
+    quality = ReturnsQuality(
+        inputs=[EquityPricing.close],
+        window_length=months_to_days(context.window_length),
+        mask=base_universe
+    )
+    
+    mom_quality = MomentumQuality(
         inputs=[EquityPricing.close],
         window_length=months_to_days(context.window_length),
         mask=base_universe
     )
     
     pipe = Pipeline(
-        screen=base_universe,# & (returns > 0),
+        #screen=(base_universe & (quality >= .85)),
+        screen=base_universe,
         columns={
-            'returns': returns,
-            #'quality': quality
+            #'returns': returns,
+            'returns': mom_quality,
         }
     )
     
@@ -273,7 +299,7 @@ def rebalance(context, data):
     '''
     #print(len(quality))
     #top_long_names = set(quality.nlargest(context.number_of_stocks).keys())
-    top_long_names = set(returns.nlargest(context.number_of_stocks).keys())
+    top_long_names = set(returns.nlargest(context.number_of_stocks).keys()) if not returns.empty else set()
     #print(get_datetime())
     #print(returns)
     #names_with_returns = [(x.symbol, [y for y in returns if y.symbol == x.symbol][0]) for x in top_long_names]
