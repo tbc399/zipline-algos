@@ -54,11 +54,6 @@ class MomentumQuality(CustomFactor):
         output = []
         for col in prices:  
             slope, _, r_value, _, _ = stats.linregress(x, col)
-            #quality = r_value ** 2
-            #output.append(r_value ** 2)
-            #returns = (col[-1] - col[0]) / col[0]
-            #output.append((slope * 0.7) + (r_value * 0.3))
-            #output.append((returns * 0.7) + (r_value * 0.3))
             output.append((slope * 0.7) * (r_value * 0.3))
 
         out[:] = output

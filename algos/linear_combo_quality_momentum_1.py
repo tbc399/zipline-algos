@@ -1,23 +1,14 @@
 """
-This strategy is taken from my unserstanding of what I've heard from
-AlphaArchitect and their momentum strategy that looks back 12 months and
-rebalances every quarter and holds about 30 - 50 stocks.
 """
-
-# todo: use correlation for quality of momentum? https://realpython.com/python310-new-features/#new-functions-in-the-statistics-module
 
 import numpy as np
 from scipy import stats
-import re
-import pandas
 
 from zipline.api import (
     set_commission,
     schedule_function,
     attach_pipeline,
     pipeline_output,
-    sid,
-    order_target_percent,
     get_open_orders,
     record,
     get_datetime
@@ -28,13 +19,6 @@ from zipline.pipeline import Pipeline, CustomFactor
 from zipline.pipeline.data.equity_pricing import EquityPricing
 from zipline.pipeline.factors import Returns, AverageDollarVolume
 from zipline.errors import CannotOrderDelistedAsset
-'''
-from zipline.pipeline.filters.fundamentals import (
-    IsPrimaryShare,
-    IsDepositaryReceipt,
-    is_common_stock
-)
-'''
 
 
 class MomentumQuality(CustomFactor):
@@ -53,13 +37,9 @@ class MomentumQuality(CustomFactor):
         x = np.arange(self.window_length)
         output = []
         for col in prices:  
-            slope, _, r_value, _, _ = stats.linregress(x, col)
-            #quality = r_value ** 2
-            #output.append(r_value ** 2)
-            #returns = (col[-1] - col[0]) / col[0]
-            #output.append((slope * 0.7) + (r_value * 0.3))
-            #output.append((returns * 0.7) + (r_value * 0.3))
-            output.append((slope * 0.7) * (r_value * 0.3))
+            _, _, r_value, _, _ = stats.linregress(x, col)
+            returns = (col[-1] - col[0]) / col[0]
+            output.append((returns * 0.7) + (r_value * 0.3))
 
         out[:] = output
 

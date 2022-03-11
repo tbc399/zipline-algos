@@ -38,12 +38,6 @@ from zipline.pipeline.filters.fundamentals import (
 
 
 class MomentumQuality(CustomFactor):
-    """
-    Notes:
-        - using rate of return and r values does seem to do a little better than just rate of return
-        - slope vs returns is negligible, but it looks like returns is a little better
-        - Probably would be worth looking at one more quality measure, e.g. from Quantitative Momentum book
-    """
     
     inputs = [EquityPricing.close]
 
@@ -54,31 +48,9 @@ class MomentumQuality(CustomFactor):
         output = []
         for col in prices:  
             slope, _, r_value, _, _ = stats.linregress(x, col)
-            #quality = r_value ** 2
-            #output.append(r_value ** 2)
-            #returns = (col[-1] - col[0]) / col[0]
-            #output.append((slope * 0.7) + (r_value * 0.3))
-            #output.append((returns * 0.7) + (r_value * 0.3))
-            output.append((slope * 0.7) * (r_value * 0.3))
+            annualized_slope = (np.power(np.exp(slope), 250) - 1) * 100
+            output.append(annualized_slope * (r_value ** 2))
 
-        out[:] = output
-
-
-class ReturnsQuality(CustomFactor):
-    
-    inputs = [EquityPricing.close]
-    
-    def compute(self, today, assets, out, close):
-        prices = close.transpose()
-        x = np.arange(self.window_length)
-        output = []
-        for col in prices:
-            try:
-                r_value, _ = stats.pearsonr(x, col)
-                output.append(r_value)
-            except ValueError as error:
-                #print(error)
-                output.append(0)
         out[:] = output
 
 
@@ -100,57 +72,6 @@ def T500US():
     ).top(500)
 
   
-def r2_value(x):
-    
-    return stats.linregress(np.arange(len(x)), x)[2] ** 2
-
-'''
-def r_value_quality(context, data):
-    
-    assets = pipeline_output('pipe').index
-    closes = data.history(
-        assets,
-        'price',
-        months_to_days(context.window_length),
-        '1d'
-    )
-    r2_values = closes.apply(r2_value)
-    
-    return r2_values
-'''
-
-
-def r_value_quality(assets, window_length, data):
-    
-    closes = data.history(
-        assets,
-        'price',
-        months_to_days(window_length),
-        '1d'
-    )
-    r2_values = closes.apply(r2_value)
-    
-    return r2_values
-
-
-def long_rank(returns, quality):
-    
-    #combo = returns * quality
-    #combo = (0.1 * returns) + (0.9 * quality)
-    #combo = (0.4 * returns) + (0.6 * quality)
-    #combo = quality
-    combo = returns.rank(ascending=False)[:200]
-    print(x.amount for x in returns)
-    #best_quality = [x for x in highest_returners if x.symbol in quality.index]
-    return combo.sort_values(ascending=False).keys()
-
-
-'''
-def long_rank(returns):
-    return returns.sort_values(ascending=False).keys()
-'''
-
-
 def initialize(context):
     """
     Called once at the start of the algorithm.
@@ -190,30 +111,16 @@ def make_pipeline(context):
 
     base_universe = T500US()
     
-    returns = Returns(
-        inputs=[EquityPricing.close],
-        window_length=months_to_days(context.window_length),
-        mask=base_universe
-    )
-    
-    quality = ReturnsQuality(
-        inputs=[EquityPricing.close],
-        window_length=months_to_days(context.window_length),
-        mask=base_universe
-    )
-    
-    mom_quality = MomentumQuality(
+    quality_returns = MomentumQuality(
         inputs=[EquityPricing.close],
         window_length=months_to_days(context.window_length),
         mask=base_universe
     )
     
     pipe = Pipeline(
-        #screen=(base_universe & (quality >= .85)),
         screen=base_universe,
         columns={
-            #'returns': returns,
-            'returns': mom_quality,
+            'returns': quality_returns,
         }
     )
     
