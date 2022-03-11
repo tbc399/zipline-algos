@@ -53,8 +53,9 @@ class MomentumQuality(CustomFactor):
         x = np.arange(self.window_length)
         output = []
         for col in prices:  
-            slope, _, r_value, _, _ = stats.linregress(x, col)
-            output.append((slope * 0.7) * (r_value * 0.3))
+            _, _, r_value, _, _ = stats.linregress(x, col)
+            returns = (col[-1] - col[0]) / col[0]
+            output.append((returns * 0.7) * (r_value ** 2 * 0.3))
 
         out[:] = output
 

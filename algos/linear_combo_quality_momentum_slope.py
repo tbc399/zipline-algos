@@ -1,24 +1,16 @@
 """
-This strategy is taken from my unserstanding of what I've heard from
-AlphaArchitect and their momentum strategy that looks back 12 months and
-rebalances every quarter and holds about 30 - 50 stocks.
 """
-
-# todo: use correlation for quality of momentum? https://realpython.com/python310-new-features/#new-functions-in-the-statistics-module
 
 import numpy as np
 from scipy import stats
-import re
-import pandas
 
 from zipline.api import (
     set_commission,
     schedule_function,
     attach_pipeline,
     pipeline_output,
-    sid,
-    order_target_percent,
     get_open_orders,
+    order_target_percent,
     record,
     get_datetime
 )
@@ -28,13 +20,6 @@ from zipline.pipeline import Pipeline, CustomFactor
 from zipline.pipeline.data.equity_pricing import EquityPricing
 from zipline.pipeline.factors import Returns, AverageDollarVolume
 from zipline.errors import CannotOrderDelistedAsset
-'''
-from zipline.pipeline.filters.fundamentals import (
-    IsPrimaryShare,
-    IsDepositaryReceipt,
-    is_common_stock
-)
-'''
 
 
 class MomentumQuality(CustomFactor):
@@ -53,28 +38,9 @@ class MomentumQuality(CustomFactor):
         x = np.arange(self.window_length)
         output = []
         for col in prices:  
-            _, _, r_value, _, _ = stats.linregress(x, col)
-            returns = (col[-1] - col[0]) / col[0]
-            output.append((returns * 0.7) * (r_value * 0.3))
+            slope, _, r_value, _, _ = stats.linregress(x, col)
+            output.append((slope * 0.7) + (r_value * 0.3))
 
-        out[:] = output
-
-
-class ReturnsQuality(CustomFactor):
-    
-    inputs = [EquityPricing.close]
-    
-    def compute(self, today, assets, out, close):
-        prices = close.transpose()
-        x = np.arange(self.window_length)
-        output = []
-        for col in prices:
-            try:
-                r_value, _ = stats.pearsonr(x, col)
-                output.append(r_value)
-            except ValueError as error:
-                #print(error)
-                output.append(0)
         out[:] = output
 
 
@@ -96,56 +62,6 @@ def T500US():
     ).top(500)
 
   
-def r2_value(x):
-    
-    return stats.linregress(np.arange(len(x)), x)[2] ** 2
-
-'''
-def r_value_quality(context, data):
-    
-    assets = pipeline_output('pipe').index
-    closes = data.history(
-        assets,
-        'price',
-        months_to_days(context.window_length),
-        '1d'
-    )
-    r2_values = closes.apply(r2_value)
-    
-    return r2_values
-'''
-
-
-def r_value_quality(assets, window_length, data):
-    
-    closes = data.history(
-        assets,
-        'price',
-        months_to_days(window_length),
-        '1d'
-    )
-    r2_values = closes.apply(r2_value)
-    
-    return r2_values
-
-
-def long_rank(returns, quality):
-    
-    #combo = returns * quality
-    #combo = (0.1 * returns) + (0.9 * quality)
-    #combo = (0.4 * returns) + (0.6 * quality)
-    #combo = quality
-    combo = returns.rank(ascending=False)[:200]
-    print(x.amount for x in returns)
-    #best_quality = [x for x in highest_returners if x.symbol in quality.index]
-    return combo.sort_values(ascending=False).keys()
-
-
-'''
-def long_rank(returns):
-    return returns.sort_values(ascending=False).keys()
-'''
-
 
 def initialize(context):
     """
@@ -186,30 +102,16 @@ def make_pipeline(context):
 
     base_universe = T500US()
     
-    returns = Returns(
-        inputs=[EquityPricing.close],
-        window_length=months_to_days(context.window_length),
-        mask=base_universe
-    )
-    
-    quality = ReturnsQuality(
-        inputs=[EquityPricing.close],
-        window_length=months_to_days(context.window_length),
-        mask=base_universe
-    )
-    
-    mom_quality = MomentumQuality(
+    quality_returns = MomentumQuality(
         inputs=[EquityPricing.close],
         window_length=months_to_days(context.window_length),
         mask=base_universe
     )
     
     pipe = Pipeline(
-        #screen=(base_universe & (quality >= .85)),
         screen=base_universe,
         columns={
-            #'returns': returns,
-            'returns': mom_quality,
+            'returns': quality_returns,
         }
     )
     
@@ -239,16 +141,6 @@ def handle_stragglers(context, data):
 def rebalance(context, data):
     """Rebalance every month"""
     
-    '''
-    hist = data.history(sid(8554), "close", 140, "1d")
-    check = hist.pct_change(context.tf_lookback).iloc[-1]
-
-    if check > 0.0:
-        context.tf_filter = True
-    else:
-        context.tf_filter = False
-    '''
-        
     if get_datetime().month not in range(1, 13, context.rebalance_freq):
         return
     
