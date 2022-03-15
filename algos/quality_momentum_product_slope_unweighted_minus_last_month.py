@@ -48,12 +48,12 @@ class MomentumQuality(CustomFactor):
     inputs = [EquityPricing.close]
 
     def compute(self, today, assets, out, close):
-        
         prices = close.transpose()
         x = np.arange(self.window_length)
         output = []
+        trim_length = months_to_days(1)
         for col in prices:  
-            slope, _, r_value, _, _ = stats.linregress(x, col)
+            slope, _, r_value, _, _ = stats.linregress(x[:-trim_length], col[:-trim_length])
             output.append(slope * r_value ** 2)
 
         out[:] = output
@@ -120,7 +120,7 @@ def months_to_days(months):
 def make_pipeline(context):
     """TODO"""
 
-    base_universe = T500US()
+    base_universe = T1000US()
     
     quality_returns = MomentumQuality(
         inputs=[EquityPricing.close],
