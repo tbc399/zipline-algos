@@ -6,7 +6,9 @@ Ideas:
  - mean reversion: hold for a day. rank on opening based on how far away from the mean it is in an uptrend
     - would need large swings from the mean
  - mean reversion: determine the mean with something like a 5 day EMA on market_close the open (could also look at the closing bar)
+    - could get in check that 2 period RSI on open
     - could get out when it reached the "mean" or maybe when 2 period RSI breaks over threshold
+    - rank on biggest move from EMA and lowest RSI?
  - mean reversion: using a 2-ish period rsi
  - mean reversion: for any MR strategy set something like a 100 EMA as a guard
 """

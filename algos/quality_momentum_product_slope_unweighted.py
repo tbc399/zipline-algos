@@ -101,6 +101,8 @@ def initialize(context):
     
     context.names_to_buy = None
     
+    context.tf_lookback = months_to_days(6)
+    
     set_commission(commission.PerTrade(cost=0.0))
     
     schedule_function(
