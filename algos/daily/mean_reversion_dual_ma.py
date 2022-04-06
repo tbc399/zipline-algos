@@ -7,6 +7,7 @@ Idea:
 - could get out when it reached the "mean" or maybe when 2 period RSI breaks over threshold
 - rank on biggest move from EMA (slow or fast)?
 - rank on biggest diff between fast and slow EMA
+- Maybe add a larger EMA (e.g. 26 day) as a "guard"?
 """
 import talib
 from pandas import Timedelta
@@ -54,6 +55,7 @@ def initialize(context: TradingAlgorithm):
 
     context.wins = 0
     context.losses = 0
+    context.pnl = 0
     context.rsi_exits = 0
     context.ema_exits = 0
     context.time_exits = 0
@@ -65,7 +67,9 @@ def initialize(context: TradingAlgorithm):
     set_commission(commission.PerTrade(cost=0.0))
 
     schedule_function(
-        rebalance_start, date_rules.every_day(), time_rules.market_open(minutes=1)
+        rebalance_start,
+        date_rules.every_day(),
+        time_rules.market_open(minutes=1),
     )
 
     attach_pipeline(make_pipeline(context), "pipe")
@@ -82,24 +86,42 @@ def make_pipeline(context: TradingAlgorithm):
 
 
 def rebalance_start(context: TradingAlgorithm, data: BarData):
-    #open_ = pipeline_output("pipe")["open"]
+    open_ = pipeline_output("pipe")["open"]
 
     for equity, position in context.portfolio.positions.items():
         historical_opens = data.history(equity, "open", 30, "1d")
         ema10 = talib.EMA(historical_opens, timeperiod=10)
-        if context.trading_calendar.sessions_window(get_datetime().date(), -5)[0] >= context.position_dates[equity]:
+        if (
+            context.trading_calendar.sessions_window(get_datetime().date(), -5)[0]
+            >= context.position_dates[equity][0]
+        ):
             if ema10.iloc[-1] >= historical_opens.iloc[-1]:
                 context.time_exits += 1
-                #print(f'{get_datetime()} Time Sell')
-                order_target_percent(equity, 0)
+                # print(f'{get_datetime()} Time Sell')
+                order_id = order_target_percent(equity, 0)
+                order = context.get_order(order_id)
+                pnl = (historical_opens.iloc[-1] * -order.amount) - context.position_dates[equity][1]
+                if pnl > 0:
+                    context.wins += 1
+                else:
+                    context.losses += 1
+                context.pnl += pnl
                 del context.position_dates[equity]
                 continue
 
         rsi = talib.RSI(historical_opens, timeperiod=2)
         if rsi.iloc[-1] >= 80:
             context.rsi_exits += 1
-            #print(f'{get_datetime()} RSI Sell')
-            order_target_percent(equity, 0)
+            # print(f'{get_datetime()} RSI Sell')
+            order_id = order_target_percent(equity, 0)
+            order = context.get_order(order_id)
+            pnl = (historical_opens.iloc[-1] * -order.amount) - \
+                  context.position_dates[equity][1]
+            if pnl > 0:
+                context.wins += 1
+            else:
+                context.losses += 1
+            context.pnl += pnl
             del context.position_dates[equity]
         # elif ema.iloc[-1] < historical_opens.iloc[-1]:
         #     context.ema_exits += 1
@@ -107,38 +129,33 @@ def rebalance_start(context: TradingAlgorithm, data: BarData):
         #     del context.position_dates[equity]
 
     max_price = context.account.settled_cash * context.max_concentration
-    #open_ = open_[open_ <= max_price]
-    #historical_opens = data.history(open_.index, "open", 20, "1d")
-    historical_opens = data.history(symbol('WMT'), "open", 30, "1d")
-    #rsi = historical_opens.apply(lambda col: talib.RSI(col, timeperiod=2))
-    #ema5 = historical_opens.apply(lambda col: talib.EMA(col, timeperiod=5))
-    #ema10 = historical_opens.apply(lambda col: talib.EMA(col, timeperiod=10))
-    ema5 = talib.EMA(historical_opens, timeperiod=5)
-    ema10 = talib.EMA(historical_opens, timeperiod=10)
+    open_ = open_[open_ <= max_price]
+    historical_opens = data.history(open_.index, "open",30, "1d")
+    #historical_opens = data.history(symbol("WMT"), "open", 30, "1d")
+    # rsi = historical_opens.apply(lambda col: talib.RSI(col, timeperiod=2))
+    ema5 = historical_opens.apply(lambda col: talib.EMA(col, timeperiod=5))
+    ema10 = historical_opens.apply(lambda col: talib.EMA(col, timeperiod=10))
+    #ema5 = talib.EMA(historical_opens, timeperiod=5)
+    #ema10 = talib.EMA(historical_opens, timeperiod=10)
 
-    # combo = [
-    #     (
-    #         key,
-    #         historical_opens.get(key).iloc[-1],
-    #         #ema5.get(key).iloc[-1],
-    #         #ema10.get(key).iloc[-1],
-    #         ema5.iloc[-1],
-    #         ema10.iloc[-1],
-    #         #rsi.get(key).iloc[-1],
-    #     )
-    #     for key in historical_opens.keys()
-    # ]
     combo = [
         (
-            historical_opens.name,
-            historical_opens.iloc[-1],
-            #ema5.get(key).iloc[-1],
-            #ema10.get(key).iloc[-1],
-            ema5.iloc[-1],
-            ema10.iloc[-1],
+            key,
+            historical_opens.get(key).iloc[-1],
+            ema5.get(key).iloc[-1],
+            ema10.get(key).iloc[-1],
             #rsi.get(key).iloc[-1],
         )
+        for key in historical_opens.keys()
     ]
+    # combo = [
+    #     (
+    #         historical_opens.name,
+    #         historical_opens.iloc[-1],
+    #         ema5.iloc[-1],
+    #         ema10.iloc[-1],
+    #     )
+    # ]
     below = [x for x in combo if x[1] < x[3] < x[2]]
     sorted_below = sorted(below, key=lambda x: (x[2] - x[1]) / x[1], reverse=True)
     open_order_value = 0
@@ -149,13 +166,14 @@ def rebalance_start(context: TradingAlgorithm, data: BarData):
             and data.can_trade(name)
             and open_order_value < context.account.settled_cash
         ):
-            #print(f'{get_datetime()} Buy {price} ema5={round(ema5, 2)} ema10={round(ema10, 2)}')
+            # print(f'{get_datetime()} Buy {price} ema5={round(ema5, 2)} ema10={round(ema10, 2)}')
             order_id = order_target_percent(name, context.max_concentration)
             order = context.get_order(order_id)
             if order:
                 open_order_value += order.amount * price
-                context.position_dates[name] = get_datetime()
+                context.position_dates[name] = (get_datetime(), order.amount * price)
 
     print(
         f"exit type (Time/RSI/EMA): {context.time_exits}/{context.rsi_exits}/{context.ema_exits}"
     )
+    #print(f'(wins/losses): ({context.wins}/{context.losses}) pnl: {round(context.pnl, 2)}')
