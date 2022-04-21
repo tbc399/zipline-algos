@@ -8,6 +8,8 @@ Idea:
 - rank on biggest move from EMA (slow or fast)?
 - rank on biggest diff between fast and slow EMA
 - Maybe add a larger EMA (e.g. 26 day) as a "guard"?
+Notes:
+- Look at instances of losses to see if there's a common thread
 """
 import talib
 from pandas import Timedelta
@@ -54,7 +56,9 @@ def T1000US():
 def initialize(context: TradingAlgorithm):
 
     context.wins = 0
+    context.cumm_win = 0
     context.losses = 0
+    context.cumm_loss = 0
     context.pnl = 0
     context.rsi_exits = 0
     context.ema_exits = 0
@@ -100,11 +104,15 @@ def rebalance_start(context: TradingAlgorithm, data: BarData):
                 # print(f'{get_datetime()} Time Sell')
                 order_id = order_target_percent(equity, 0)
                 order = context.get_order(order_id)
+                if not order:
+                    continue
                 pnl = (historical_opens.iloc[-1] * -order.amount) - context.position_dates[equity][1]
                 if pnl > 0:
                     context.wins += 1
+                    context.cumm_win += pnl
                 else:
                     context.losses += 1
+                    context.cumm_loss += -pnl
                 context.pnl += pnl
                 del context.position_dates[equity]
                 continue
@@ -115,12 +123,16 @@ def rebalance_start(context: TradingAlgorithm, data: BarData):
             # print(f'{get_datetime()} RSI Sell')
             order_id = order_target_percent(equity, 0)
             order = context.get_order(order_id)
+            if not order:
+                continue
             pnl = (historical_opens.iloc[-1] * -order.amount) - \
                   context.position_dates[equity][1]
             if pnl > 0:
                 context.wins += 1
+                context.cumm_win += pnl
             else:
                 context.losses += 1
+                context.cumm_loss += -pnl
             context.pnl += pnl
             del context.position_dates[equity]
         # elif ema.iloc[-1] < historical_opens.iloc[-1]:
@@ -173,7 +185,9 @@ def rebalance_start(context: TradingAlgorithm, data: BarData):
                 open_order_value += order.amount * price
                 context.position_dates[name] = (get_datetime(), order.amount * price)
 
-    print(
-        f"exit type (Time/RSI/EMA): {context.time_exits}/{context.rsi_exits}/{context.ema_exits}"
-    )
-    #print(f'(wins/losses): ({context.wins}/{context.losses}) pnl: {round(context.pnl, 2)}')
+    # print(
+    #     f"exit type (Time/RSI/EMA): {context.time_exits}/{context.rsi_exits}/{context.ema_exits}"
+    # )
+    avg_win = context.cumm_win / context.wins if context.wins else 0
+    avg_loss = context.cumm_loss / context.losses if context.losses else 0
+    print(f'{get_datetime()} (wins(avg)/losses(avg)): ({context.wins}({round(avg_win, 2)})/{context.losses}({round(avg_loss, 2)})) pnl: {round(context.pnl, 2)}')
