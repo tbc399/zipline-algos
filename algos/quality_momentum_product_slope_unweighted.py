@@ -122,8 +122,9 @@ def months_to_days(months):
 def make_pipeline(context):
     """TODO"""
 
-    base_universe = T500US()
-    
+    #base_universe = T500US()
+    base_universe = T1000US()
+
     quality_returns = MomentumQuality(
         inputs=[EquityPricing.close],
         window_length=months_to_days(context.window_length),
