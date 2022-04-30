@@ -59,7 +59,8 @@ class MomentumQuality(CustomFactor):
             #returns = (col[-1] - col[0]) / col[0]
             #output.append((slope * 0.7) + (r_value * 0.3))
             #output.append((returns * 0.7) + (r_value * 0.3))
-            output.append((slope * 0.7) * (r_value * 0.3))
+            #output.append((slope * 0.7) * (r_value * 0.3))
+            output.append(slope * r_value)
 
         out[:] = output
 
