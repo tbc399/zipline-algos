@@ -38,8 +38,8 @@ class Trade:
     sell_dt: datetime
     name: str
     pnl: float
-
-
+    
+    
 trade_pairings = dict()
 trades: List[Trade] = []
 for transaction in transactions:
@@ -49,8 +49,8 @@ for transaction in transactions:
         sell_price = abs(transaction.price * transaction.amount)
         trades.append(
             Trade(
-                buy_dt=buy_transaction.dt,
-                sell_dt=transaction.dt,
+                buy_dt=buy_transaction.dt.tz_convert('US/Eastern').to_pydatetime(),
+                sell_dt=transaction.dt.tz_convert('US/Eastern').to_pydatetime(),
                 name=transaction.sid.symbol,
                 pnl=round(sell_price - buy_price, 2),
             )
