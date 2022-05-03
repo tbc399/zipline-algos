@@ -1,4 +1,4 @@
-from collections import defaultdict
+import statistics
 from typing import List
 from dataclasses import dataclass
 from datetime import datetime
@@ -39,6 +39,9 @@ class Trade:
     name: str
     pnl: float
     
+    def __str__(self):
+        return f'{self.buy_dt.date()} {self.sell_dt.date()} {self.name} {self.pnl}'
+    
     
 trade_pairings = dict()
 trades: List[Trade] = []
@@ -59,5 +62,31 @@ for transaction in transactions:
     else:
         trade_pairings[transaction.sid] = transaction
 
-for trade in trades[:50]:
+
+wins = [trade for trade in trades if trade.pnl > 0]
+losses = [trade for trade in trades if trade.pnl < 0]
+
+print(f'Wins: {len(wins)}')
+print(f'Losses: {len(losses)}')
+
+avg_win = sum([win.pnl for win in wins])
+avg_loss = sum([loss.pnl for loss in losses])
+
+print(f'Avg win: {round(avg_win / len(wins), 2)}')
+print(f'Avg loss: {round(avg_loss / len(losses), 2)}')
+
+print(f'Stddev win: {round(statistics.stdev((win.pnl for win in wins)), 2)}')
+print(f'Stddev loss: {round(statistics.stdev((loss.pnl for loss in losses)), 2)}')
+
+win_hold_times = [(win.sell_dt - win.buy_dt).days for win in wins]
+loss_hold_times = [(loss.sell_dt - loss.buy_dt).days for loss in losses]
+
+avg_win_hold_time = round(sum(win_hold_times) / len(win_hold_times))
+stddev_win_hold_time = round(statistics.stdev(win_hold_times))
+print(f'Win hold time: avg({avg_win_hold_time}) stdev({stddev_win_hold_time})')
+avg_loss_hold_time = round(sum(loss_hold_times) / len(loss_hold_times))
+stddev_loss_hold_time = round(statistics.stdev(loss_hold_times))
+print(f'Loss hold time: avg({avg_loss_hold_time}) stdev({stddev_loss_hold_time})')
+
+for trade in trades[:5]:
     print(trade)
