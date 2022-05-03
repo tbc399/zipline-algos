@@ -83,10 +83,13 @@ loss_hold_times = [(loss.sell_dt - loss.buy_dt).days for loss in losses]
 
 avg_win_hold_time = round(sum(win_hold_times) / len(win_hold_times))
 stddev_win_hold_time = round(statistics.stdev(win_hold_times))
-print(f'Win hold time: avg({avg_win_hold_time}) stdev({stddev_win_hold_time})')
+mean_win_hold_time = round(statistics.mean(win_hold_times))
+print(f'Win hold time: avg({avg_win_hold_time}) stdev({stddev_win_hold_time}) mean({mean_win_hold_time})')
+
 avg_loss_hold_time = round(sum(loss_hold_times) / len(loss_hold_times))
 stddev_loss_hold_time = round(statistics.stdev(loss_hold_times))
-print(f'Loss hold time: avg({avg_loss_hold_time}) stdev({stddev_loss_hold_time})')
+mean_loss_hold_time = round(statistics.mean(loss_hold_times))
+print(f'Loss hold time: avg({avg_loss_hold_time}) stdev({stddev_loss_hold_time}) mean({mean_loss_hold_time})')
 
-for trade in trades[:5]:
+for trade in trades[:15]:
     print(trade)
