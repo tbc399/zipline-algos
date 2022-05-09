@@ -13,7 +13,7 @@ bench_returns = df.benchmark_period_return
 fig = express.line(
     pd.concat([algo_returns, bench_returns], axis=1), title=sys.argv[1].split()[0]
 )
-#fig.show()
+fig.show()
 
 
 @dataclass
