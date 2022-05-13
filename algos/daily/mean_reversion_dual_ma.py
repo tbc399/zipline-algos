@@ -20,6 +20,7 @@ import zipline.protocol
 from zipline.algorithm import TradingAlgorithm
 from zipline.api import (
     set_commission,
+    set_slippage,
     symbol,
     schedule_function,
     record,
@@ -29,7 +30,7 @@ from zipline.api import (
     get_open_orders,
     get_datetime,
 )
-from zipline.finance import commission
+from zipline.finance import commission, slippage
 from zipline.utils.events import date_rules, time_rules
 from zipline.protocol import BarData
 from zipline.pipeline import Pipeline
@@ -74,6 +75,7 @@ def initialize(context: TradingAlgorithm):
     context.position_dates = {}
 
     set_commission(commission.PerTrade(cost=0.0))
+    set_slippage(us_equities=slippage.NoSlippage())
 
     schedule_function(
         rebalance_start,
@@ -81,7 +83,7 @@ def initialize(context: TradingAlgorithm):
         time_rules.market_open(minutes=1),
     )
 
-    attach_pipeline(make_pipeline(), "pipe")
+    attach_pipeline(make_pipeline(), 'pipe')
 
 
 def make_pipeline():
@@ -90,7 +92,7 @@ def make_pipeline():
 
     pipe = Pipeline(
         screen=base_universe,
-        columns={"open": USEquityPricing.open.latest},
+        columns={'open': USEquityPricing.open.latest},
     )
 
     return pipe
@@ -99,7 +101,7 @@ def make_pipeline():
 def evaluate_current_positions(context, data):
 
     for equity, position in context.portfolio.positions.items():
-        historical_opens = data.history(equity, "open", 30, "1d")
+        historical_opens = data.history(equity, 'open', 30, '1d')
         ema10 = talib.EMA(historical_opens, timeperiod=10)
         if equity not in context.position_dates:
             order_target_percent(equity, 0)
@@ -118,7 +120,6 @@ def evaluate_current_positions(context, data):
                 
         # stop-loss
         if percent_change(historical_opens.iloc[-1] * position.amount, context.position_dates[equity][1]) <= -20:
-            print('stop-loss')
             order_id = order_target_percent(equity, 0)
             order = context.get_order(order_id)
             if not order:
@@ -135,16 +136,16 @@ def evaluate_current_positions(context, data):
             del context.position_dates[equity]
 
 
-PriceData = namedtuple("PriceData", ["key", "price", "ema5", "ema10"])
+PriceData = namedtuple('PriceData', ['key', 'price', 'ema5', 'ema10'])
 
 
 def screen_and_rank(context, data):
 
-    open_ = pipeline_output("pipe")["open"]
+    open_ = pipeline_output('pipe')['open']
 
     max_price = context.account.settled_cash * context.max_concentration
     open_ = open_[open_ <= max_price]
-    historical_opens = data.history(open_.index, "open", 30, "1d")
+    historical_opens = data.history(open_.index, 'open', 30, '1d')
     ema5 = historical_opens.apply(lambda col: talib.EMA(col, timeperiod=5))
     ema10 = historical_opens.apply(lambda col: talib.EMA(col, timeperiod=10))
 
@@ -159,11 +160,9 @@ def screen_and_rank(context, data):
         for key in historical_opens.keys()
     ]
     rank_filter = [x for x in combo if x.price < x.ema5 and x.ema10 < x.ema5]
-    # ranking = sorted(
-    #     rank_filter, key=rank_closest_to_10_ema, reverse=True
-    # )
-    ranking = rank_filter
-    random.shuffle(ranking)
+    ranking = sorted(
+        rank_filter, key=rank_farthest_from_5_ema, reverse=True
+    )
     open_order_value = 0
 
     for name, price, ema5, ema10 in (
@@ -189,6 +188,10 @@ def rebalance_start(context, data):
 
 def rank_closest_to_10_ema(x: PriceData):
     return abs(x.price - x.ema10)
+
+
+def rank_farthest_from_5_ema(x: PriceData):
+    return percent_change(x.price, x.ema5)
 
 
 def percent_change(first, second):
