@@ -148,6 +148,7 @@ def screen_and_rank(context, data):
     historical_opens = data.history(open_.index, 'open', 30, '1d')
     ema5 = historical_opens.apply(lambda col: talib.EMA(col, timeperiod=5))
     ema10 = historical_opens.apply(lambda col: talib.EMA(col, timeperiod=10))
+    rsi = historical_opens.apply(lambda col: talib.RSI(col, timeperiod=2))
 
 
     combo = [
