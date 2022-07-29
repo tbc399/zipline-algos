@@ -45,17 +45,16 @@ def T1000US():
 
 
 class InstantSlippage(slippage.SlippageModel):
-    
     def process_order(self, data, order):
         # Use price from previous bar
-        price = data.history(order.sid, 'price', 2, '1d')[0]
-        
+        price = data.history(order.sid, "open", 2, "1d")[0]
+
         # Alternative: Use current bar's open, instead of close
         # price = data.current(order.sid, 'open')
 
         return price, order.amount
 
- 
+
 def initialize(context: TradingAlgorithm):
 
     context.wins = 0
@@ -104,8 +103,8 @@ def make_pipeline():
 
 def exit_positions(context, data):
     for equity, position in context.portfolio.positions.items():
-        if equity.symbol == 'TWTR':
-            print(f'exit TWTR: {get_datetime()}')
+        if equity.symbol == "TWTR":
+            print(f"exit TWTR: {get_datetime()}")
         order_target_percent(equity, 0)
 
 
@@ -131,9 +130,10 @@ def screen_and_rank(context, data):
         )
         for key in historical_opens.keys()
     ]
-    rank_filter = [x for x in combo if x.ema10 < x.ema5]
-    ranking = rank_filter
-    random.shuffle(ranking)
+    rank_filter = [x for x in combo if x.price < x.ema5 and x.ema10 < x.ema5]
+    ranking = sorted(
+        rank_filter, key=rank_farthest_from_5_ema, reverse=True
+    )
     open_order_value = 0
 
     for name, price, ema5, ema10 in (
@@ -147,19 +147,23 @@ def screen_and_rank(context, data):
             order_id = order_target_percent(name, context.max_concentration)
             order = context.get_order(order_id)
             if order:
-                if name.symbol == 'TWTR':
-                    print(f'enter TWTR: {get_datetime()}')
+                if name.symbol == "TWTR":
+                    print(f"enter TWTR: {get_datetime()}")
                 open_order_value += order.amount * price
 
 
 def rebalance_start(context, data):
-    #print(get_datetime().date())
+    # print(get_datetime().date())
 
     screen_and_rank(context, data)
 
 
 def rank_closest_to_10_ema(x: PriceData):
     return abs(x.price - x.ema10)
+
+
+def rank_farthest_from_5_ema(x: PriceData):
+    return percent_change(x.price, x.ema5)
 
 
 def percent_change(first, second):
