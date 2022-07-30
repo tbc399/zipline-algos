@@ -47,7 +47,7 @@ def T1000US():
 class InstantSlippage(slippage.SlippageModel):
     def process_order(self, data, order):
         # Use price from previous bar
-        price = data.history(order.sid, 'open', 2, '1d')[0]
+        price = data.history(order.sid, "open", 2, "1d")[0]
 
         # Alternative: Use current bar's open, instead of close
         # price = data.current(order.sid, 'open')
@@ -86,7 +86,7 @@ def initialize(context: TradingAlgorithm):
         time_rules.market_close(minutes=1),
     )
 
-    attach_pipeline(make_pipeline(), 'pipe')
+    attach_pipeline(make_pipeline(), "pipe")
 
 
 def make_pipeline():
@@ -95,7 +95,7 @@ def make_pipeline():
 
     pipe = Pipeline(
         screen=base_universe,
-        columns={'open': USEquityPricing.open.latest},
+        columns={"open": USEquityPricing.open.latest},
     )
 
     return pipe
@@ -103,12 +103,12 @@ def make_pipeline():
 
 def exit_positions(context, data):
     for equity, position in context.portfolio.positions.items():
-        # if equity.symbol == "TWTR":
-        #     print(f"exit TWTR: {get_datetime()}")
+        if equity.symbol == "TWTR":
+            print(f"exit TWTR: {get_datetime()}")
         order_target_percent(equity, 0)
 
 
-PriceData = namedtuple('PriceData', ['key', 'price', 'ema5', 'ema10', 'rsi'])
+PriceData = namedtuple("PriceData", ["key", "price", "ema5", "ema10"])
 
 
 def screen_and_rank(context, data):
@@ -117,10 +117,9 @@ def screen_and_rank(context, data):
 
     max_price = context.account.settled_cash * context.max_concentration
     open_ = open_[open_ <= max_price]
-    historical_opens = data.history(open_.index, 'open', 30, '1d')
+    historical_opens = data.history(open_.index, "open", 30, "1d")
     ema5 = historical_opens.apply(lambda col: talib.EMA(col, timeperiod=5))
     ema10 = historical_opens.apply(lambda col: talib.EMA(col, timeperiod=10))
-    rsi = historical_opens.apply(lambda col: talib.RSI(col, timeperiod=2))
 
     combo = [
         PriceData(
@@ -128,11 +127,10 @@ def screen_and_rank(context, data):
             price=historical_opens.get(key).iloc[-1],
             ema5=ema5.get(key).iloc[-1],
             ema10=ema10.get(key).iloc[-1],
-            rsi=rsi.get(key).iloc[-1],
         )
         for key in historical_opens.keys()
     ]
-    rank_filter = [x for x in combo if x.price < x.ema5 and x.ema10 < x.ema5 and 20 <= x.rsi <= 80]
+    rank_filter = [x for x in combo if x.price < x.ema5 and x.ema10 < x.ema5]
     ranking = sorted(
         rank_filter, key=rank_farthest_from_5_ema, reverse=True
     )
@@ -149,8 +147,8 @@ def screen_and_rank(context, data):
             order_id = order_target_percent(name, context.max_concentration)
             order = context.get_order(order_id)
             if order:
-                # if name.symbol == "TWTR":
-                #     print(f"enter TWTR: {get_datetime()}")
+                if name.symbol == "TWTR":
+                    print(f"enter TWTR: {get_datetime()}")
                 open_order_value += order.amount * price
 
 
