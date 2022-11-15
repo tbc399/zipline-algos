@@ -92,5 +92,5 @@ mean_loss_hold_time = round(statistics.mean(loss_hold_times))
 print(f'Loss hold time: avg({avg_loss_hold_time}) stdev({stddev_loss_hold_time}) mean({mean_loss_hold_time})')
 
 # for trade in trades[:200]:
-for trade in trades[:400]:
+for trade in trades[400:800]:
     print(trade)
