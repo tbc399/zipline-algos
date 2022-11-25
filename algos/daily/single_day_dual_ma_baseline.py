@@ -131,9 +131,7 @@ def screen_and_rank(context, data):
         for key in historical_opens.keys()
     ]
     rank_filter = [x for x in combo if x.price < x.ema5 and x.ema10 < x.ema5]
-    ranking = sorted(
-        rank_filter, key=rank_farthest_from_5_ema, reverse=True
-    )
+    ranking = sorted(rank_filter, key=rank_farthest_from_5_ema, reverse=True)
     open_order_value = 0
 
     for name, price, ema5, ema10 in (

@@ -135,7 +135,7 @@ def screen_and_rank(context, data):
 
 
 def rebalance_start(context, data):
-    #print(get_datetime().date())
+    # print(get_datetime().date())
 
     screen_and_rank(context, data)
 

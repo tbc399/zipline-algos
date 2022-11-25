@@ -38,11 +38,11 @@ class Trade:
     sell_dt: datetime
     name: str
     pnl: float
-    
+
     def __str__(self):
         return f'{self.buy_dt.date()} {self.sell_dt.date()} {self.name} {self.pnl}'
-    
-    
+
+
 trade_pairings = dict()
 trades: List[Trade] = []
 for transaction in transactions:
@@ -84,12 +84,16 @@ loss_hold_times = [(loss.sell_dt - loss.buy_dt).days for loss in losses]
 avg_win_hold_time = round(sum(win_hold_times) / len(win_hold_times))
 stddev_win_hold_time = round(statistics.stdev(win_hold_times))
 mean_win_hold_time = round(statistics.mean(win_hold_times))
-print(f'Win hold time: avg({avg_win_hold_time}) stdev({stddev_win_hold_time}) mean({mean_win_hold_time})')
+print(
+    f'Win hold time: avg({avg_win_hold_time}) stdev({stddev_win_hold_time}) mean({mean_win_hold_time})'
+)
 
 avg_loss_hold_time = round(sum(loss_hold_times) / len(loss_hold_times))
 stddev_loss_hold_time = round(statistics.stdev(loss_hold_times))
 mean_loss_hold_time = round(statistics.mean(loss_hold_times))
-print(f'Loss hold time: avg({avg_loss_hold_time}) stdev({stddev_loss_hold_time}) mean({mean_loss_hold_time})')
+print(
+    f'Loss hold time: avg({avg_loss_hold_time}) stdev({stddev_loss_hold_time}) mean({mean_loss_hold_time})'
+)
 
 # for trade in trades[:200]:
 for trade in trades[400:800]:

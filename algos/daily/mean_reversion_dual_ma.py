@@ -117,9 +117,15 @@ def evaluate_current_positions(context, data):
                     continue
                 del context.position_dates[equity]
                 continue
-                
+
         # stop-loss
-        if percent_change(historical_opens.iloc[-1] * position.amount, context.position_dates[equity][1]) <= -20:
+        if (
+            percent_change(
+                historical_opens.iloc[-1] * position.amount,
+                context.position_dates[equity][1],
+            )
+            <= -20
+        ):
             order_id = order_target_percent(equity, 0)
             order = context.get_order(order_id)
             if not order:
@@ -150,7 +156,6 @@ def screen_and_rank(context, data):
     ema10 = historical_opens.apply(lambda col: talib.EMA(col, timeperiod=10))
     rsi = historical_opens.apply(lambda col: talib.RSI(col, timeperiod=2))
 
-
     combo = [
         PriceData(
             key=key,
@@ -161,9 +166,7 @@ def screen_and_rank(context, data):
         for key in historical_opens.keys()
     ]
     rank_filter = [x for x in combo if x.price < x.ema5 and x.ema10 < x.ema5]
-    ranking = sorted(
-        rank_filter, key=rank_farthest_from_5_ema, reverse=True
-    )
+    ranking = sorted(rank_filter, key=rank_farthest_from_5_ema, reverse=True)
     open_order_value = 0
 
     for name, price, ema5, ema10 in (
