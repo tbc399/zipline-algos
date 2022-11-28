@@ -15,6 +15,7 @@ from zipline.api import (
     pipeline_output,
     order_target_percent,
     record,
+    symbol,
     get_datetime,
 )
 from zipline.finance import commission
@@ -126,6 +127,8 @@ def handle_stragglers(context, data):
 
 
 def handle_data(context, data):
+
+    print(get_datetime(), data.current(symbol('A'), 'open'))
 
     context.output = pipeline_output('pipe')
 
