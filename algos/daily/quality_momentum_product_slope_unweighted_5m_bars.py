@@ -128,6 +128,9 @@ def handle_stragglers(context, data):
 
 def handle_data(context, data):
 
+    if not get_datetime().minute % 5 == 0:
+        return
+
     print(get_datetime(), data.current(symbol('A'), 'open'))
 
     context.output = pipeline_output('pipe')
