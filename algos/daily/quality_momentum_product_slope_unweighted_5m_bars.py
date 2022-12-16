@@ -48,6 +48,16 @@ class MomentumQuality(CustomFactor):
         out[:] = output
 
 
+def compute_quality_momentum(assets, window_length, data):
+    close_prices = data.history(assets, 'close', window_length, '1m')
+
+    def quality(prices):
+        slope, _, r_value, _, _ = stats.linregress(np.arange(window_length, prices))
+        return slope * r_value**2
+
+    return close_prices.apply(quality)
+
+
 def my_default_us_equity_mask():
 
     has_prev_close = EquityPricing.close.latest.notnull()
@@ -90,17 +100,18 @@ def make_pipeline(context):
 
     base_universe = T500US()
 
-    quality_returns = MomentumQuality(
-        inputs=[EquityPricing.close],
-        window_length=50,
-        mask=base_universe,
-    )
+    # quality_returns = MomentumQuality(
+    #     inputs=[EquityPricing.close],
+    #     window_length=50,
+    #     mask=base_universe,
+    # )
 
     pipe = Pipeline(
-        screen=base_universe & (quality_returns > 0),
-        columns={
-            'returns': quality_returns,
-        },
+        # screen=base_universe & (quality_returns > 0),
+        screen=base_universe
+        # columns={
+        #     'returns': quality_returns,
+        # },
     )
 
     return pipe
@@ -133,10 +144,13 @@ def handle_data(context, data):
 
     print(get_datetime(), data.current(symbol('A'), 'open'))
 
-    context.output = pipeline_output('pipe')
+    assets = pipeline_output('pipe').assets
 
-    returns = context.output['returns']
+    momentum = compute_quality_momentum(assets, 50, data)
 
+    top_momentum = momentum.rank(ascending=False)[:200]
+    sorted_names = top_momentum.sort_values(ascending=False)
+    top_long_names = sorted_names[: context.number_of_stocks]
     top_long_names = (
         set(returns.nlargest(context.number_of_stocks).keys())
         if not returns.empty
