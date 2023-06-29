@@ -26,7 +26,11 @@ from zipline.finance import commission
 from zipline.utils.events import date_rules, time_rules
 from zipline.pipeline import Pipeline, CustomFactor
 from zipline.pipeline.data.equity_pricing import EquityPricing
-from zipline.pipeline.factors import Returns, AverageDollarVolume
+from zipline.pipeline.factors import (
+    Returns,
+    AverageDollarVolume,
+    RollingPearsonOfReturns,
+)
 from zipline.errors import CannotOrderDelistedAsset
 
 '''

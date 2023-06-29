@@ -49,7 +49,7 @@ class MomentumQuality(CustomFactor):
 
 
 def compute_quality_momentum(assets, window_length, data):
-    close_prices = data.history(assets, 'close', window_length, '1m')
+    close_prices = data.history(assets, 'price', window_length, '1m')
 
     def quality(prices):
         slope, _, r_value, _, _ = stats.linregress(np.arange(window_length, prices))
@@ -144,18 +144,18 @@ def handle_data(context, data):
 
     print(get_datetime(), data.current(symbol('A'), 'open'))
 
-    assets = pipeline_output('pipe').assets
+    assets = pipeline_output('pipe').index
 
     momentum = compute_quality_momentum(assets, 50, data)
 
     top_momentum = momentum.rank(ascending=False)[:200]
     sorted_names = top_momentum.sort_values(ascending=False)
     top_long_names = sorted_names[: context.number_of_stocks]
-    top_long_names = (
-        set(returns.nlargest(context.number_of_stocks).keys())
-        if not returns.empty
-        else set()
-    )
+    # top_long_names = (
+    #     set(returns.nlargest(context.number_of_stocks).keys())
+    #     if not returns.empty
+    #     else set()
+    # )
     current_names = set(context.portfolio.positions.keys())
 
     context.names_to_buy = top_long_names - current_names
