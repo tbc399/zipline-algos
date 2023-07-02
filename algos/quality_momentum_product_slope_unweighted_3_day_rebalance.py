@@ -7,6 +7,8 @@ rebalances every quarter and holds about 30 - 50 stocks.
 # todo: use correlation for quality of momentum? https://realpython.com/python310-new-features/#new-functions-in-the-statistics-module
 
 import numpy as np
+from operator import itemgetter
+from multiprocessing import Pool
 from scipy import stats
 import re
 import pandas
@@ -107,9 +109,9 @@ def T2000US():
 #         return price, order.amount
 
 
-class NoSlippage(slippage.SlippageModel):
-    def process_order(self, data, order):
-        return data.history(order.asset, "open", 2, "1d")[0], order.amount
+# class NoSlippage(slippage.SlippageModel):
+#     def process_order(self, data, order):
+#         return data.current(order.asset, "open"), order.amount
 
 
 def initialize(context):
@@ -124,8 +126,12 @@ def initialize(context):
     #  window length for evaluating momentum in days
     context.window_length = 10
 
+    # bar size in minutes
+    context.bar_size = 30
+
     set_commission(commission.PerTrade(cost=0.0))
-    set_slippage(us_equities=NoSlippage())
+    # set_slippage(us_equities=NoSlippage())
+    set_slippage(us_equities=slippage.NoSlippage())
 
     schedule_function(
         rebalance,
@@ -165,33 +171,29 @@ def make_pipeline(context):
     return pipe
 
 
-def prepare_bars(assets, data, window_length, minutes_in_day=391):
+def prepare_bars(assets, data, window_length, bar_size, minutes_in_day=391):
     """Fetch all bar data for the given assets and filter out assets with insufficient pricing data"""
     minutes_in_window = window_length * minutes_in_day
     minute_prices = data.history(assets, 'open', minutes_in_window, '1m')
-    return assets
-
-
-def compute_quality(assets, window_minutes, data):
-    """Quality filter"""
-    pass
-
-
-def compute_momentum(assets, window_minutes, data):
-    minute_prices = data.history(assets, 'open', window_minutes, '1m')
-
-    def quality(prices):
-        slope, _, r_value, _, _ = stats.linregress(np.arange(prices.size), prices)
-        return slope * r_value**2
-
+    bars = [(name, prices.dropna()) for name, prices in minute_prices.iteritems()]
+    lookback_length = (minutes_in_day // bar_size) * window_length
     return [
-        (asset, quality(prices.dropna())) for asset, prices in minute_prices.iteritems()
+        (name, prices[-lookback_length:])
+        for name, prices in bars
+        if prices.size >= lookback_length
     ]
 
 
-def rebalance(context, data):
+def compute_quality_momentum(asset_prices, quality_threshold=0.9):
+    def momentum(prices):
+        slope, _, r_value, _, _ = stats.linregress(np.arange(prices.size), prices)
+        return r_value, slope * r_value**2
 
-    print(get_datetime())
+    computed = [(asset, momentum(prices)) for asset, prices in asset_prices]
+    return [(asset, mom[1]) for asset, mom in computed if mom[0] > quality_threshold]
+
+
+def rebalance(context, data):
 
     calendar = get_calendar('NYSE')
     if (
@@ -200,23 +202,27 @@ def rebalance(context, data):
     ):
         return
 
-    # context.output = pipeline_output('pipe')
+    print(str(get_datetime('America/New_York')))
 
     assets = pipeline_output('pipe').index
-    # TODO: need to compute quality filter here
-    momentum = compute_quality_momentum(assets, 390 * context.window_length, data)
 
-    # returns = context.output['returns']
+    asset_prices = prepare_bars(assets, data, context.window_length, context.bar_size)
 
-    top_long_names = (
-        set(momentum.nlargest(context.number_of_stocks).keys())
-        if not momentum.empty
-        else set()
+    momentum = compute_quality_momentum(asset_prices)
+
+    top_names = set(
+        [
+            x[0]
+            for x in sorted(momentum, key=itemgetter(1), reverse=True)[
+                : context.number_of_stocks
+            ]
+        ]
     )
+
     current_names = set(context.portfolio.positions.keys())
 
-    names_to_buy = top_long_names - current_names
-    names_to_sell = current_names - top_long_names
+    names_to_buy = top_names - current_names
+    names_to_sell = current_names - top_names
 
     for name in names_to_sell:
 

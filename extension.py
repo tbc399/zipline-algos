@@ -313,7 +313,8 @@ register(
 register(
     'tiingo-30-minute-csv',
     csvdir_equities(
-        ['minute', 'daily'],
+        # ['minute', 'daily'],
+        ['minute'],
         str(pathlib.Path.home() / '.zipline/csv/tiingo'),
     ),
     calendar_name='NYSE',  # US equities
