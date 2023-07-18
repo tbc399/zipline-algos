@@ -213,9 +213,10 @@ def csvdir_bundle(
 
         divs_splits["divs"]["sid"] = divs_splits["divs"]["sid"].astype(int)
         divs_splits["splits"]["sid"] = divs_splits["splits"]["sid"].astype(int)
-        adjustment_writer.write(
-            splits=divs_splits["splits"], dividends=divs_splits["divs"]
-        )
+        # adjustment_writer.write(
+        #     splits=divs_splits["splits"], dividends=divs_splits["divs"]
+        # )
+        adjustment_writer.write(splits=divs_splits["splits"])
 
 
 def _pricing_iter(csvdir, symbols, metadata, divs_splits, show_progress):
@@ -313,10 +314,11 @@ register(
 register(
     'tiingo-30-minute-csv',
     csvdir_equities(
-        # ['minute', 'daily'],
         ['minute'],
+        # ['minute'],
         str(pathlib.Path.home() / '.zipline/csv/tiingo'),
     ),
     calendar_name='NYSE',  # US equities
     minutes_per_day=391,
+    start_session=pd.Timestamp(year=2021, month=1, day=4, tzinfo=pytz.UTC),
 )
