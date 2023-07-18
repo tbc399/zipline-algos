@@ -60,6 +60,30 @@ class MomentumQuality(CustomFactor):
         for col in prices:
             slope, _, r_value, _, _ = stats.linregress(x, col)
             output.append(slope * r_value**2)
+            # output.append(r_value)
+
+        out[:] = output
+
+
+class Quality(CustomFactor):
+    """
+    Notes:
+        - using rate of return and r values does seem to do a little better than just rate of return
+        - slope vs returns is negligible, but it looks like returns is a little better
+        - Probably would be worth looking at one more quality measure, e.g. from Quantitative Momentum book
+    """
+
+    inputs = [EquityPricing.close]
+
+    def compute(self, today, assets, out, close):
+
+        prices = close.transpose()
+        x = np.arange(self.window_length)
+        output = []
+        for col in prices:
+            slope, _, r_value, _, _ = stats.linregress(x, col)
+            # output.append(slope * r_value**2)
+            output.append(r_value)
 
         out[:] = output
 
@@ -81,16 +105,23 @@ def T500US():
     return _tus(500)
 
 
+def T100US():
+    return _tus(100)
+
+
 def T1000US():
     return _tus(1000)
+
+
+def T2000US():
+    return _tus(2000)
 
 
 def initialize(context):
     """
     Called once at the start of the algorithm.
     """
-    context.number_of_stocks = 50
-    context.number_of_stocks_for_selection = 30
+    context.number_of_stocks = 25
 
     #  the rebalance frequency in months
     context.rebalance_freq = 1
@@ -102,8 +133,6 @@ def initialize(context):
     context.sell_orders = set()
 
     context.names_to_buy = None
-
-    context.tf_lookback = months_to_days(6)
 
     set_commission(commission.PerTrade(cost=0.0))
 
@@ -121,11 +150,18 @@ def make_pipeline(context):
     """TODO"""
 
     base_universe = T500US()
+    # base_universe = T1000US()
+
+    quality = Quality(
+        inputs=[EquityPricing.close],
+        window_length=months_to_days(context.window_length),
+        mask=base_universe,
+    )
 
     quality_returns = MomentumQuality(
         inputs=[EquityPricing.close],
         window_length=months_to_days(context.window_length),
-        mask=base_universe,
+        mask=quality > 0.5,
     )
 
     pipe = Pipeline(
@@ -138,38 +174,8 @@ def make_pipeline(context):
     return pipe
 
 
-def handle_stragglers(context, data):
-    """TODO"""
-
-    for order_id in list(context.sell_orders):
-
-        order = get_order(order_id)
-
-        #  check if the order was prior to today
-        if get_datetime().date() > order.created.date():
-
-            #  check that the order was not filled
-            if order.status != 1 and order.sid in context.portfolio.positions:
-
-                #  try to close it out again
-                context.sell_orders.add(order_target_percent(order.sid, 0))
-
-                #  remove the old order id
-                context.sell_orders.remove(order_id)
-
-
 def rebalance(context, data):
     """Rebalance every month"""
-
-    '''
-    hist = data.history(sid(8554), "close", 140, "1d")
-    check = hist.pct_change(context.tf_lookback).iloc[-1]
-
-    if check > 0.0:
-        context.tf_filter = True
-    else:
-        context.tf_filter = False
-    '''
 
     if get_datetime().month not in range(1, 13, context.rebalance_freq):
         return
@@ -177,70 +183,14 @@ def rebalance(context, data):
     context.output = pipeline_output('pipe')
 
     returns = context.output['returns']
-    # assets = pipeline_output('pipe').index
-    '''
-    returns = data.history(
-        assets,
-        'close',
-        months_to_days(context.window_length),
-        '1d'
-    ).pct_change(months_to_days(context.window_length)).iloc[-1]
-    print(returns)
-    #quality = r_value_quality(assets, context.window_length, data)
-    '''
-    '''
-    quality = r_value_quality(
-        returns.nlargest(100).index,
-        #returns.nsmallest(100).index,
-        context.window_length,
-        data
-    )
-    '''
-    '''
-    #print(type(returns))
-    #print(returns.nlargest(10).index)
-    #print(returns.nsmallest(10).index)
-    #quality = context.output['quality']
-    top_ranked_names = long_rank(returns, None)[:context.number_of_stocks_for_selection]
-    top_ranked_names = [
-        x for x in long_rank(returns, quality)[:context.number_of_stocks_for_selection]
-        if re.match(r'^[A-Z]+$', x.symbol)
-    ]
-    #print(quality)
-    top_ranked_names = [
-        x for x in quality.sort_values(ascending=False)[:context.number_of_stocks_for_selection].keys()
-        if re.match(r'^[A-Z]+$', x.symbol)
-    ]
-    '''
 
-    # print(pandas.concat((returns, quality), axis=1))
-
-    # print(','.join([x.symbol for x in top_ranked_names[:context.number_of_stocks]]))
-
-    '''
-    top_long_names = set(
-        top_ranked_names[:context.number_of_stocks]
+    top_names = set(
+        returns.sort_values(ascending=False)[: context.number_of_stocks].keys()
     )
-    '''
-    # print(len(quality))
-    # top_long_names = set(quality.nlargest(context.number_of_stocks).keys())
-    top_long_names = (
-        set(returns.nlargest(context.number_of_stocks).keys())
-        if not returns.empty
-        else set()
-    )
-    # print(get_datetime())
-    # print(returns)
-    # names_with_returns = [(x.symbol, [y for y in returns if y.symbol == x.symbol][0]) for x in top_long_names]
-    # for x, y in names_with_returns:
-    #    print(x, y)
-    # print('============================')
-    # print(get_datetime(), '|', ','.join(x.symbol for x in top_long_names))
     current_names = set(context.portfolio.positions.keys())
 
-    context.names_to_buy = top_long_names - current_names
-    # print(get_datetime(), '|', ','.join(x.symbol for x in context.names_to_buy))
-    names_to_sell = current_names - top_long_names
+    context.names_to_buy = top_names - current_names
+    names_to_sell = current_names - top_names
 
     for name in names_to_sell:
 

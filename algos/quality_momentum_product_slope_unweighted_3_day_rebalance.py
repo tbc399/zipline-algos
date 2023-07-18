@@ -9,6 +9,7 @@ rebalances every quarter and holds about 30 - 50 stocks.
 import numpy as np
 from operator import itemgetter
 from multiprocessing import Pool
+from multiprocessing import Pool
 from scipy import stats
 import re
 import pandas
@@ -83,7 +84,7 @@ def my_default_us_equity_mask():
 
 def _tus(limit):
     tradables = my_default_us_equity_mask()
-    return AverageDollarVolume(window_length=50, mask=tradables).top(limit)
+    return AverageDollarVolume(window_length=10, mask=tradables).top(limit)
 
 
 def T500US():
@@ -124,7 +125,7 @@ def initialize(context):
     context.rebalance_freq = 3
 
     #  window length for evaluating momentum in days
-    context.window_length = 10
+    context.window_length = 15
 
     # bar size in minutes
     context.bar_size = 30
@@ -162,7 +163,7 @@ def make_pipeline(context):
     pipe = Pipeline(
         # screen=base_universe & (quality > 0.9),
         # screen=base_universe & (momentum > 0),
-        screen=base_universe,
+        # screen=base_universe,
         # columns={
         #     'returns': momentum,
         # },
@@ -184,13 +185,39 @@ def prepare_bars(assets, data, window_length, bar_size, minutes_in_day=391):
     ]
 
 
-def compute_quality_momentum(asset_prices, quality_threshold=0.9):
+def top_volume_filter(assets, data, minutes_in_day=391):
+    volume = data.history(assets, 'volume', minutes_in_day, '1m')
+    daily_volumes = sorted(
+        [(name, data[data != 0].agg(sum)) for name, data in volume.iteritems()],
+        key=itemgetter(1),
+        reverse=True,
+    )
+    return [name for name, _ in daily_volumes[:500]]
+
+
+# def _momentum(args):
+#     asset = args[0]
+#     prices = args[1]
+#     slope, _, r_value, _, _ = stats.linregress(np.arange(prices.size), prices)
+#     return asset, r_value, slope * r_value**2
+
+
+def compute_quality_momentum(asset_prices, quality_threshold=0):
     def momentum(prices):
         slope, _, r_value, _, _ = stats.linregress(np.arange(prices.size), prices)
         return r_value, slope * r_value**2
 
     computed = [(asset, momentum(prices)) for asset, prices in asset_prices]
     return [(asset, mom[1]) for asset, mom in computed if mom[0] > quality_threshold]
+
+
+def compute_raw_momentum(asset_prices):
+    def momentum(prices):
+        slope, _, _, _, _ = stats.linregress(np.arange(prices.size), prices)
+        return slope
+
+    computed = [(asset, momentum(prices)) for asset, prices in asset_prices]
+    return [(asset, mom) for asset, mom in computed]
 
 
 def rebalance(context, data):
@@ -206,9 +233,14 @@ def rebalance(context, data):
 
     assets = pipeline_output('pipe').index
 
-    asset_prices = prepare_bars(assets, data, context.window_length, context.bar_size)
+    filtered_assets = top_volume_filter(assets, data)
 
-    momentum = compute_quality_momentum(asset_prices)
+    asset_prices = prepare_bars(
+        filtered_assets, data, context.window_length, context.bar_size
+    )
+
+    momentum = compute_quality_momentum(asset_prices, quality_threshold=0)
+    # momentum = compute_raw_momentum(asset_prices)
 
     top_names = set(
         [
