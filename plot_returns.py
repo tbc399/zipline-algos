@@ -6,10 +6,36 @@ import sys
 import pandas as pd
 from plotly import express
 
+from yfinance import download
+
+
+def percent_change(start, finish):
+    return (finish - start) / start
+
 
 df = pd.read_pickle(f"{sys.argv[1]}")
-algo_returns = df.algorithm_period_return
-bench_returns = df.benchmark_period_return
+algo_returns = pd.Series(
+    df.algorithm_period_return.values, df.algorithm_period_return.index.date
+)
+
+# benchmark_symbol = '^SPX'
+benchmark_symbol = 'SPY'
+spx = download(
+    [benchmark_symbol],
+    start=df.algorithm_period_return.index[0].date(),
+    end=df.algorithm_period_return.index[-1].date(),
+).drop(columns=['Open', "Close", 'High', 'Low', 'Volume'])
+
+spx_returns = [
+    (date.date(), percent_change(spx.values[0][0], value[0]))
+    for date, value in spx.iterrows()
+]
+
+bench_returns = pd.DataFrame(spx_returns, columns=['Date', benchmark_symbol]).set_index(
+    'Date'
+)
+
+
 fig = express.line(
     pd.concat([algo_returns, bench_returns], axis=1), title=sys.argv[1].split()[0]
 )
