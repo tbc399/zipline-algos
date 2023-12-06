@@ -74,7 +74,8 @@ def initialize(context):
     """
     Called once at the start of the algorithm.
     """
-    context.number_of_stocks = 50
+    # context.number_of_stocks = 50
+    context.number_of_stocks = 30
     context.number_of_stocks_for_selection = 30
 
     #  the rebalance frequency in months

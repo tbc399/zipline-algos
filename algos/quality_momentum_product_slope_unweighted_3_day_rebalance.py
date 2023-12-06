@@ -122,10 +122,12 @@ def initialize(context):
     context.number_of_stocks = 25
 
     #  the rebalance frequency in days
+    # context.rebalance_freq = 5
     context.rebalance_freq = 3
 
     #  window length for evaluating momentum in days
     context.window_length = 15
+    # context.window_length = 45
 
     # bar size in minutes
     context.bar_size = 30
@@ -146,7 +148,7 @@ def initialize(context):
 def make_pipeline(context):
     """TODO"""
 
-    base_universe = T2000US()
+    base_universe = T1000US()
 
     # quality = Quality(
     #     inputs=[EquityPricing.open],
@@ -202,7 +204,7 @@ def top_volume_filter(assets, data, minutes_in_day=391):
 #     return asset, r_value, slope * r_value**2
 
 
-def compute_quality_momentum(asset_prices, quality_threshold=0):
+def compute_quality_momentum(asset_prices, quality_threshold: float = 0.0):
     def momentum(prices):
         slope, _, r_value, _, _ = stats.linregress(np.arange(prices.size), prices)
         return r_value, slope * r_value**2
@@ -211,12 +213,31 @@ def compute_quality_momentum(asset_prices, quality_threshold=0):
     return [(asset, mom[1]) for asset, mom in computed if mom[0] > quality_threshold]
 
 
+def filter_quality(asset_prices, quality_threshold: float = 0.0):
+    def quality(prices):
+        _, _, r_value, _, _ = stats.linregress(np.arange(prices.size), prices)
+        return r_value
+
+    computed = [(asset, quality(prices), prices) for asset, prices in asset_prices]
+    return [
+        (asset, prices) for asset, qual, prices in computed if qual > quality_threshold
+    ]
+
+
 def compute_raw_momentum(asset_prices):
     def momentum(prices):
         slope, _, _, _, _ = stats.linregress(np.arange(prices.size), prices)
         return slope
 
     computed = [(asset, momentum(prices)) for asset, prices in asset_prices]
+    return [(asset, mom) for asset, mom in computed]
+
+
+def compute_raw_returns(asset_prices):
+    def returns(prices):
+        return (prices[-1] - prices[0]) / prices[0]
+
+    computed = [(asset, returns(prices)) for asset, prices in asset_prices]
     return [(asset, mom) for asset, mom in computed]
 
 
@@ -239,8 +260,11 @@ def rebalance(context, data):
         filtered_assets, data, context.window_length, context.bar_size
     )
 
-    momentum = compute_quality_momentum(asset_prices, quality_threshold=0)
+    # momentum = compute_quality_momentum(asset_prices, quality_threshold=0.7)
     # momentum = compute_raw_momentum(asset_prices)
+
+    quality_filtered_assets = filter_quality(asset_prices, quality_threshold=0.0)
+    momentum = compute_raw_returns(quality_filtered_assets)
 
     top_names = set(
         [
