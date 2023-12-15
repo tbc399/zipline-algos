@@ -39,7 +39,9 @@ def plot():
     ).set_index('Date')
 
     fig = express.line(
-        pd.concat([algo_returns, bench_returns], axis=1), title=sys.argv[1].split()[0]
+        # pd.concat([algo_returns, bench_returns], axis=1), title=sys.argv[1].split()[0]
+        algo_returns,
+        title=sys.argv[1].split()[0],
     )
     fig.show()
 
