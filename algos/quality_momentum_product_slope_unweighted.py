@@ -201,7 +201,7 @@ def make_pipeline(context):
     # quality_returns = MomentumQuality(
     #     inputs=[EquityPricing.close],
     #     window_length=months_to_days(context.window_length),
-    #     mask=quality > 0.5,
+    #     mask=quality > 0.7,
     # )
 
     returns = Returns(
@@ -209,13 +209,18 @@ def make_pipeline(context):
         window_length=months_to_days(context.window_length),
     )
 
+    # returns = ModReturns(
+    #     inputs=[EquityPricing.close],
+    #     window_length=months_to_days(context.window_length),
+    # )
+
     pipe = Pipeline(
         # screen=base_universe & (quality_returns > 0),
-        screen=base_universe & (quality > 0.7),
+        screen=base_universe & (quality > 0.8),
         # screen=base_universe & (quality < -0.7) & (returns < 0),
         # screen=(base_universe & quality.top(200)) & (returns > 0),
         columns={
-            #'returns': quality_returns,
+            # 'returns': quality_returns,
             'returns': returns,
         },
     )

@@ -39,9 +39,10 @@ def plot():
     ).set_index('Date')
 
     fig = express.line(
-        # pd.concat([algo_returns, bench_returns], axis=1), title=sys.argv[1].split()[0]
-        algo_returns,
+        pd.concat([algo_returns, bench_returns], axis=1),
         title=sys.argv[1].split()[0],
+        # algo_returns,
+        # title=sys.argv[1].split()[0],
     )
     fig.show()
 
@@ -135,6 +136,7 @@ years = math.ceil((df.starting_value.index[-1] - df.starting_value.index[0]).day
 algo_cagr = ((df.ending_value[-1] / df.starting_cash[0]) ** (1 / years) - 1) * 100
 print(f'CAGR: {round(algo_cagr, 2)}')
 print(f'Sharpe: {round(df.sharpe[-1], 2)}')
+print(f'Max Drawdown: {round(df.max_drawdown[-1], 2)}')
 print("Ending Account Value: ${:,.2f}".format(df.ending_value[-1]))
 
 # for trade in trades[:200]:

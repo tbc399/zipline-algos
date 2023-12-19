@@ -110,9 +110,9 @@ def T2000US():
 #         return price, order.amount
 
 
-# class NoSlippage(slippage.SlippageModel):
-#     def process_order(self, data, order):
-#         return data.current(order.asset, "open"), order.amount
+class NoSlippage(slippage.SlippageModel):
+    def process_order(self, data, order):
+        return data.current(order.asset, "open"), order.amount
 
 
 def initialize(context):
@@ -133,13 +133,13 @@ def initialize(context):
     context.bar_size = 30
 
     set_commission(commission.PerTrade(cost=0.0))
-    # set_slippage(us_equities=NoSlippage())
-    set_slippage(us_equities=slippage.NoSlippage())
+    set_slippage(us_equities=NoSlippage())
+    # set_slippage(us_equities=slippage.NoSlippage())
 
     schedule_function(
         rebalance,
         date_rules.every_day(),
-        time_rules.market_open(minutes=30),
+        time_rules.market_open(),
     )
 
     attach_pipeline(make_pipeline(context), 'pipe')
